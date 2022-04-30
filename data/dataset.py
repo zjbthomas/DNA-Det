@@ -1,12 +1,13 @@
 import random
 import numpy as np
 
-from PIL import Image, ImageFile
-ImageFile.LOAD_TRUNCATED_IMAGES = True
+import cv2
 
 import torch
-import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
+
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 from utils.common import read_annotations
 from data.transforms import MultiCropTransform, get_transforms
@@ -19,9 +20,9 @@ class ImageDataset(Dataset):
         self.class_num=config.class_num
         self.resize_size = config.resize_size
         self.second_resize_size = config.second_resize_size
-        self.norm_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        self.norm_transform = A.Compose([
+            A.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+            ToTensorV2()
         ])
         if balance:
             self.data = [[x for x in annotations if x[1] == lab] for lab in [i for i in range(self.class_num)]]
@@ -56,16 +57,32 @@ class ImageDataset(Dataset):
             return img, lab, img_path
 
     def load_sample(self, img_path):
-        
-        img = Image.open(img_path).convert('RGB')
-        if img.size[0]!=img.size[1]:
-            img = transforms.CenterCrop(size=self.config.crop_size)(img)
+        transform_crop = A.Compose([
+            A.CenterCrop(self.config.crop_size[0], self.config.crop_size[1])
+        ])
+
         if self.resize_size is not None:
-            img = img.resize(self.resize_size)
+            transform_resize = A.Compose([
+                A.Resize(self.resize_size[0], self.resize_size[1])
+            ])
+
         if self.second_resize_size is not None:
-            img = img.resize(self.second_resize_size)
+            transform_second_resize = A.Compose([
+                A.Resize(self.second_resize_size[0], self.second_resize_size[1])
+            ])
+
+
+        img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
         
-        img = self.norm_transform(img)    
+        height, width, _ = img.shape
+        if height != width:
+            img = transform_crop(image = img)['image']
+        if self.resize_size is not None:
+            img = transform_resize(image = img)['image']
+        if self.second_resize_size is not None:
+            img = transform_second_resize(image = img)['image']
+        
+        img = self.norm_transform(image = img)['image']
 
         return img
 
@@ -75,10 +92,13 @@ class ImageMultiCropDataset(ImageDataset):
         super(ImageMultiCropDataset, self).__init__(annotations, config, opt, balance)
         
         self.multi_size = config.multi_size
+
         crop_transforms = []
         for s in self.multi_size:
-            RandomCrop = transforms.RandomCrop(size=s)
-            crop_transforms.append(RandomCrop)
+            transform_crop = A.Compose([
+                A.RandomCrop(s[0], s[1])
+            ])
+            crop_transforms.append(transform_crop)
             self.multicroptransform = MultiCropTransform(crop_transforms)
             
     def __getitem__(self, index):
@@ -110,18 +130,34 @@ class ImageMultiCropDataset(ImageDataset):
             return img, crops, lab, img_path
 
     def load_sample(self, img_path):
-        img = Image.open(img_path).convert('RGB')
-        if img.size[0]!=img.size[1]:
-            img = transforms.CenterCrop(size=self.config.crop_size)(img)
+        transform_crop = A.Compose([
+            A.CenterCrop(self.config.crop_size[0], self.config.crop_size[1])
+        ])
 
         if self.resize_size is not None:
-            img = img.resize(self.resize_size)
+            transform_resize = A.Compose([
+                A.Resize(self.resize_size[0], self.resize_size[1])
+            ])
+
         if self.second_resize_size is not None:
-            img = img.resize(self.second_resize_size)
-            
+            transform_second_resize = A.Compose([
+                A.Resize(self.second_resize_size[0], self.second_resize_size[1])
+            ])
+
+
+        img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+
+        height, width, _ = img.shape
+        if height != width:
+            img = transform_crop(image = img)['image']
+        if self.resize_size is not None:
+            img = transform_resize(image = img)['image']
+        if self.second_resize_size is not None:
+            img = transform_second_resize(image = img)['image']
+
         crops = self.multicroptransform(img)
-        img = self.norm_transform(img)
-        crops = [self.norm_transform(crop) for crop in crops]
+        img = self.norm_transform(image = img)['image']
+        crops = [self.norm_transform(image = crop)['image'] for crop in crops]
 
         return img, crops
 
@@ -135,8 +171,10 @@ class ImageTransformationDataset(ImageDataset):
         crop_transforms = []
         self.multi_size = config.multi_size
         for s in self.multi_size:
-            RandomCrop = transforms.RandomCrop(size=s)
-            crop_transforms.append(RandomCrop)
+            transform_crop = A.Compose([
+                A.RandomCrop(s[0], s[1])
+            ])
+            crop_transforms.append(transform_crop)
             self.multicroptransform = MultiCropTransform(crop_transforms)
             
     def __len__(self):
@@ -144,22 +182,26 @@ class ImageTransformationDataset(ImageDataset):
         return len(self.data)
     
     def __getitem__(self, index):
-        
+        transform_crop = A.Compose([
+            A.RandomCrop(self.config.crop_size[0], self.config.crop_size[1])
+        ])
+
         img_path = self.data[index]
-        img = Image.open(img_path).convert('RGB')
-        img = transforms.RandomCrop(size=self.config.crop_size)(img)
+        img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+
+        img = transform_crop(image = img)['image']
         
         select_id=random.randint(0,self.class_num-1)
         pretrain_transform=self.pretrain_transforms.select_tranform(select_id)
         transformed = pretrain_transform(image=np.asarray(img))
-        img = Image.fromarray(transformed["image"])
+        img = cv2.cv.fromarray(transformed["image"])
 
         if self.resize_size is not None:
             img = img.resize(self.resize_size)
 
         crops = self.multicroptransform(img)
-        img = self.norm_transform(img)
-        crops = [self.norm_transform(crop) for crop in crops]
+        img = self.norm_transform(image = img)['image']
+        crops = [self.norm_transform(image = crop)['image'] for crop in crops]
         lab = torch.tensor(select_id, dtype=torch.long)
     
         return img, crops, lab, img_path    

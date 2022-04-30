@@ -60,4 +60,4 @@ class MultiCropTransform:
     def __init__(self, transforms) -> None:
         self.transforms=transforms
     def __call__(self, x):
-        return [T(x) for T in self.transforms]
+        return [T(image = x)['image'] for T in self.transforms]

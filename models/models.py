@@ -56,7 +56,7 @@ class Simple_CNN(nn.Module):
         feature = feature.view(feature.shape[0], -1)
         cls_out = self.classification_head(feature)
         if not self.pretrain:
-            cls_out = F.softmax(cls_out)
+            cls_out = F.softmax(cls_out, dim=1)
         return cls_out, embedding
 
 class SupConNet(nn.Module):

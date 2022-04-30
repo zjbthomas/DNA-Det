@@ -1,0 +1,9 @@
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\stargan\1_fake\0086.png	1
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\stylegan\bedroom\1_fake\001125.png	1
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\stylegan2\church\1_fake\001529.png	1
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\whichfaceisreal\1_fake\image-2019-02-17_024033.jpeg	1
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\progan\bus\0_real\01167.png	0
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\progan\bus\0_real\01280.png	0
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\progan\bus\0_real\01557.png	0
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\progan\bus\0_real\01560.png	0
+E:\eDocs\PhD\FakeMediaDetection\dataset\ForenSynths\progan\bus\0_real\01602.png	0
